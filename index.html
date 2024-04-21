@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Whiteboard</title>
+    <!-- Link Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body>
+    </div>
+    <div id="app" class="flex flex-col items-center justify-center h-screen">
+        <div id="user-info" class="absolute top-0 left-0 p-2 text-gray-700">
+            <ul>Drawer :</ul>
+        </div>
+        <canvas id="whiteboard" class="border-2 border-gray-300" width="800" height="600"></canvas>
+        <div id="controls" class="flex items-center space-x-4 mt-4">
+            <!-- Color Picker -->
+            <label for="colorPicker" class="text-gray-700">Color:</label>
+            <input type="color" id="colorPicker" value="#000000" class="rounded-md">
+            
+            <!-- Brush Size Selector -->
+            <label for="brushSize" class="text-gray-700">Brush Size:</label>
+            <select id="brushSize" class="rounded-md">
+                
+            </select>
+            
+     
+            <button id="clearButton" class="px-4 py-2 bg-blue-500 text-white rounded-md">Clear</button>
+            <label for="drawingTool" class="text-gray-700">Drawing:</label>
+            <input type="checkbox" id="drawingTool" checked>
+    
+    <label for="eraserTool" class="text-gray-700">Erasing:</label>
+    <input type="checkbox" id="eraserTool">
+        </div>
+        <div id="user-list" class="mt-4">
+            <ul id="userList"></ul>
+        </div>
+        <button id="disconnectButton" class="absolute bottom-4 left-4 px-4 py-2 bg-red-500 text-white rounded-md">Disconnect</button>
+    </div>
+    <div class="flex flex-col items-center justify-center absolute left-4 top-1/2 transform -translate-y-1/2">
+        <input type="file" id="fileInput" accept="image/*" class="hidden">
+        <label for="fileInput" class="px-4 py-2 bg-green-500 text-white rounded-md cursor-pointer mb-2">Load</label>
+        <button id="saveButton" class="px-4 py-2 bg-yellow-500 text-white rounded-md">Save</button>
+    </div>
+        <div class="flex flex-col items-center justify-center absolute right-4 top-1/2 transform -translate-y-1/2">
+        <button id="refreshButton" class="px-4 py-2 bg-gray-500 text-white rounded-md mb-2">Refresh</button>
+        <div id="chat" class="bg-gray-200 w-64 h-96 p-4 overflow-y-auto"></div>
+        <input type="text" id="messageInput" class="mt-2 px-4 py-2 bg-white border border-gray-300 rounded-md" placeholder="Type your message...">
+        <button id="sendMessageButton" class="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md">Send</button>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

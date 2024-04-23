@@ -14,13 +14,9 @@ document.addEventListener("DOMContentLoaded", () => {
     let isDrawing = false;
     let username = null;
     
-
     const socket = new WebSocket('ws://localhost:5500');
 
-    // Open WebSocket connection and prompt for username
     socket.addEventListener('open', () => {
-        console.log('WebSocket connection established');
-        // Prompt the user to enter their username when connected
         promptForUsername();
     });
 
@@ -33,7 +29,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 message: message
             };
             socket.send(JSON.stringify(data));
-            // Clear the message input field after sending the message
             messageInput.value = '';
         }
     }
@@ -53,14 +48,14 @@ document.addEventListener("DOMContentLoaded", () => {
             socket.send(JSON.stringify({ type: 'username', username: username }));
         }
     });
-
+    
     disconnectButton.addEventListener("click", () => {
         socket.close(1000, "User disconnected");
     });
-
+    
     fileInput.addEventListener('change', handleFileInputChange);
     saveButton.addEventListener('click', saveCanvas);
-
+    
     socket.addEventListener('close', (event) => {
         if (event.wasClean) {
             console.log(`WebSocket connection closed cleanly, code: ${event.code}, reason: ${event.reason}`);
@@ -69,23 +64,13 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error(`WebSocket connection abruptly closed, code: ${event.code}, reason: ${event.reason}`);
             alert('Connection lost. Please check your network connection and try reconnecting');
         }
-        
     });
-
-    document.getElementById('refreshButton').addEventListener('click', () => {
-        // Send a message to the server requesting all drawing data
-        socket.send(JSON.stringify({ type: 'requestAllDrawingData' }));
-    });
-    
     
     socket.addEventListener('error', (error) => {
         console.error('WebSocket error:', error);
-        // Display an error message to the user
         alert('WebSocket error occurred. Please check your connection and try again.');
     });
-
     
-
     socket.addEventListener('message', (event) => {
         try {
             const message = JSON.parse(event.data);
@@ -112,13 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error('Error parsing JSON message:', error);
         }
     });
-
-    function handleDrawingData(data) {
-        // Iterate over the drawing data and draw each line on the canvas
-        data.forEach((line) => {
-            // Draw the line using line coordinates, color, etc.
-        });
-    }
+    
 
     function displayChatMessage(username, message) {
         const chatBox = document.getElementById('chat');
@@ -170,13 +149,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Function to update user list in HTML
     function updateUserList(users) {
         const userListElement = document.getElementById('userList');
         userListElement.innerHTML = '';
         users.forEach((user) => {
             const listItem = document.createElement('li');
-            // Display both ID and username in the list item
             listItem.textContent = `ID: ${user.id}, Username: ${user.username}`;
             userListElement.appendChild(listItem);
         });
@@ -206,7 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function updateUserDrawer(username) {
         const userInfoElement = document.getElementById('user-info');
-        userInfoElement.innerHTML = ''; // Clear previous content
+        userInfoElement.innerHTML = '';
         const listItem = document.createElement('ul');
         listItem.textContent = `Drawer: ${username}`;
         userInfoElement.appendChild(listItem);
@@ -279,20 +256,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function saveCanvas() {
-        // Prompt the user to enter the filename
         const filename = prompt("Name your drawing file:");
         if (filename) {
             const dataUrl = canvas.toDataURL('image/png');
             const link = document.createElement('a');
             link.href = dataUrl;
-            link.download = `${filename}.png`; // Use the provided filename
+            link.download = `${filename}.png`;
             link.click();
         } else {
-            // Inform the user that the filename is required
             alert("Filename is required.");
         }
     }
-    // Function to handle file input change
+
     function handleFileInputChange(event) {
         const file = event.target.files[0];
         const reader = new FileReader();
@@ -300,9 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const img = new Image();
             img.onload = function () {
                 ctx.drawImage(img, 0, 0);
-                // Get the image data from the canvas
                 const imageData = canvas.toDataURL('image/png');
-                // Send the image data to the server
                 socket.send(JSON.stringify({ type: 'loadImage', imageData: imageData }));
             };
             img.src = e.target.result;

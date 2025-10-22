@@ -1,180 +1,131 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const WebSocket = require('ws');
+const http = require('http');
 
 const app = express();
-const port = 5500;
+// allow big base64 images, adjust as you like
+app.use(bodyParser.json({ limit: '10mb' }));
 
-app.use(bodyParser.json());
+const PORT = process.env.PORT || 5500;
 
+// --- in-memory state ---
 let connectedUsers = [];
 let drawingData = [];
+let currentDrawerUsername = null;
 
+// --- helpers ---
 function generateId() {
-    return Date.now().toString();
+  return Date.now().toString();
 }
 
-function broadcastUserList() {
-    const userListWithIdAndUsername = connectedUsers.map(user => {
-        return {
-            id: user.id,
-            username: user.username
-        };
-    });
-
-    const userListMessage = JSON.stringify({
-        type: 'userListUpdate',
-        users: userListWithIdAndUsername
-    });
-
-    wss.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(userListMessage);
-        }
-    });
+function broadcastUserList(wss) {
+  const users = connectedUsers.map(u => ({ id: u.id, username: u.username }));
+  const msg = JSON.stringify({ type: 'userListUpdate', users });
+  wss.clients.forEach((c) => c.readyState === WebSocket.OPEN && c.send(msg));
 }
 
-function broadcastClearCanvas() {
-    wss.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ type: 'clear' }));
-        }
-    });
+function broadcastClearCanvas(wss) {
+  const msg = JSON.stringify({ type: 'clear' });
+  wss.clients.forEach((c) => c.readyState === WebSocket.OPEN && c.send(msg));
 }
 
-function sendDrawingDataToNewUser(newUserSocket) {
-    drawingData.forEach((data) => {
-        newUserSocket.send(JSON.stringify(data));
-    });
+function sendDrawingDataToNewUser(ws) {
+  drawingData.forEach((d) => ws.send(JSON.stringify(d)));
 }
 
-function sendAllDrawingDataToClient(clientSocket) {
-    const message = {
-        type: 'drawingData',
-        data: drawingData
-    };
-    clientSocket.send(JSON.stringify(message));
+function sendAllDrawingDataToClient(ws) {
+  ws.send(JSON.stringify({ type: 'drawingData', data: drawingData }));
 }
 
+// --- HTTP endpoints (optional) ---
+app.post('/save-drawing', (req, res) => {
+  const imageData = req.body.imageData;
+  let imageName = req.query.filename || ('drawing_' + Date.now() + '.png');
+  if (!imageName.endsWith('.png')) imageName += '.png';
 
-const wss = new WebSocket.Server({ noServer: true });
+  res.setHeader('Content-Disposition', `attachment; filename=${imageName}`);
+  res.setHeader('Content-Type', 'image/png');
+  res.send(imageData);
+});
 
-    wss.on('connection', (ws) => {
-    console.log('Client connected');
-
-    const id = generateId();
-
-    ws.on('message', (message) => {
-        const parsedMessage = JSON.parse(message);
-
-        if (parsedMessage.type === 'newUser') {
-            const { username } = parsedMessage;
-            console.log('Received username:', username);
-            const newUser = { id, username };
-            connectedUsers.push(newUser);
-            console.log(connectedUsers);
-            broadcastUserList();
-            sendDrawingDataToNewUser(ws);
-        } else if (parsedMessage.type === 'draw') {
-            wss.clients.forEach((client) => {
-                if (client !== ws && client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify(parsedMessage));
-                }
-            });
-            currentDrawerUsername = parsedMessage.username;
-
-            wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ type: 'drawerUsername', username: currentDrawerUsername }));
-                }
-            });
-            drawingData.push(parsedMessage);
-        } else if (parsedMessage.type === 'erase') {
-            wss.clients.forEach((client) => {
-                if (client !== ws && client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify(parsedMessage));
-                }
-            });
-            drawingData.push(parsedMessage);
-        } else if (parsedMessage.type === 'stopDrawing') {
-            wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify(parsedMessage));
-                }
-            });
-            drawingData.push(parsedMessage);
-        } else if (parsedMessage.type === 'clear') {
-            broadcastClearCanvas();
-            drawingData.push(parsedMessage);
-        }else if (parsedMessage.type === 'chatMessage') {
-            wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({
-                        type: 'chatMessage',
-                        username: parsedMessage.username,
-                        message: parsedMessage.message
-                    }));
-                }
-            });
-        }else if (parsedMessage.type === 'requestAllDrawingData') {
-            sendAllDrawingDataToClient(ws);
-        }
-    });
-
-    app.post('/save-drawing', (req, res) => {
-    const imageData = req.body.imageData;
-    let imageName = req.query.filename || 'drawing_' + Date.now() + '.png';
-
-    if (!imageName.endsWith('.png')) {
-        imageName += '.png';
+app.post('/load-image', (req, res) => {
+  const imageData = req.body.imageData;
+  // broadcast to all clients as a loadImage event
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({ type: 'loadImage', imageData }));
     }
-
-    res.setHeader('Content-Disposition', `attachment; filename=${imageName}`);
-    res.setHeader('Content-Type', 'image/png');
-    res.send(imageData);
-    
+  });
+  // keep a record so new users can replay
+  drawingData.push({ type: 'loadImage', imageData });
+  res.status(200).send('Image loaded successfully.');
 });
 
-    app.post('/load-image', (req, res) => {
-    const imageData = req.body.imageData;
-    wss.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ type: 'loadImage', imageData: imageData }));
+// --- create HTTP server & attach WS server ---
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+  const id = generateId();
+  console.log('Client connected', id);
+
+  ws.on('message', (message) => {
+    const parsed = JSON.parse(message);
+
+    if (parsed.type === 'newUser') {
+      const { username } = parsed;
+      connectedUsers.push({ id, username });
+      broadcastUserList(wss);
+      sendDrawingDataToNewUser(ws);
+
+    } else if (parsed.type === 'draw') {
+      // broadcast draw & active drawer name
+      wss.clients.forEach((client) => {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(parsed));
         }
-    });
-    drawingData.push(imageData);
-    res.status(200).send('Image loaded successfully.');
-    
-});
+      });
+      currentDrawerUsername = parsed.username;
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ type: 'drawerUsername', username: currentDrawerUsername }));
+        }
+      });
+      drawingData.push(parsed);
 
+    } else if (parsed.type === 'erase' || parsed.type === 'stopDrawing') {
+      wss.clients.forEach((client) => {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(parsed));
+        }
+      });
+      drawingData.push(parsed);
 
+    } else if (parsed.type === 'clear') {
+      broadcastClearCanvas(wss);
+      drawingData.push(parsed);
 
+    } else if (parsed.type === 'chatMessage') {
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ type: 'chatMessage', username: parsed.username, message: parsed.message }));
+        }
+      });
 
-    ws.on('close', (code, reason) => {
-    if (reason && reason.length > 0) {
-        console.log('Client disconnected:', code, reason.toString());
-    } else {
-        console.log('Client disconnected:', code, 'No reason provided');
+    } else if (parsed.type === 'requestAllDrawingData') {
+      sendAllDrawingDataToClient(ws);
     }
+  });
 
-    const disconnectedUserIndex = connectedUsers.findIndex(user => user.id === id);
-    if (disconnectedUserIndex !== -1) {
-        connectedUsers.splice(disconnectedUserIndex, 1);
-    }
-    broadcastUserList();
+  ws.on('close', (code, reason) => {
+    console.log('Client disconnected:', id, code, reason?.toString() || '');
+    const idx = connectedUsers.findIndex(u => u.id === id);
+    if (idx !== -1) connectedUsers.splice(idx, 1);
+    broadcastUserList(wss);
+  });
 });
 
-
-
+server.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
 });
-
-const server = app.listen(port, () => {
-    console.log(`Server listening on port ${port}`);
-});
-
-server.on('upgrade', (request, socket, head) => {
-    wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request);
-    });
-});
-

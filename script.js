@@ -14,7 +14,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let isDrawing = false;
     let username = null;
     
-    const socket = new WebSocket('ws://localhost:5500');
+    const socket = new WebSocket('wss://collaborativewhiteboard-6zp4.onrender.com');
+
 
     socket.addEventListener('open', () => {
         promptForUsername();

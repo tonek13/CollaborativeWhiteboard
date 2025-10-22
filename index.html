@@ -24,23 +24,30 @@
             <button id="disconnectButton" class="px-3 py-1.5 bg-red-500 text-white rounded-md">Disconnect</button>
         </div>
 
+        <!-- Mobile tabs -->
+        <div class="flex md:hidden gap-2 p-3 border-b">
+            <button id="tabBoard" class="px-3 py-2 text-sm rounded-md bg-gray-200">Board</button>
+            <button id="tabTools" class="px-3 py-2 text-sm rounded-md bg-gray-100">Tools</button>
+            <button id="tabChat" class="px-3 py-2 text-sm rounded-md bg-gray-100">Chat</button>
+        </div>
+
         <!-- Main content -->
         <div class="flex-1 w-full px-3 md:px-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             <!-- Whiteboard + controls -->
-            <div class="md:col-span-2 flex flex-col">
+            <div class="md:col-span-2 flex flex-col" id="boardPanel">
                 <div class="canvas-wrap w-full border-2 border-gray-300 rounded-md overflow-hidden">
                     <canvas id="whiteboard" class="block"></canvas>
                 </div>
 
                 <!-- Controls -->
-                <div id="controls" class="flex flex-wrap items-center gap-3 mt-3">
+                <div id="controlsPanel" class="flex flex-wrap items-center gap-3 mt-3 hidden md:flex">
                     <label for="colorPicker" class="text-gray-700 text-sm">Color</label>
                     <input type="color" id="colorPicker" value="#000000" class="rounded-md w-10 h-10 p-0">
 
                     <label for="brushSize" class="text-gray-700 text-sm">Brush</label>
-                    <select id="brushSize" class="rounded-md border px-2 py-1"></select>
+                    <select id="brushSize" class="rounded-md border px-3 py-2 min-w-[64px]"></select>
 
-                    <button id="clearButton" class="px-3 py-1.5 bg-blue-500 text-white rounded-md">Clear</button>
+                    <button id="clearButton" class="px-3 py-2 bg-blue-500 text-white rounded-md">Clear</button>
 
                     <label for="drawingTool" class="text-gray-700 text-sm">Draw</label>
                     <input type="checkbox" id="drawingTool" checked>
@@ -48,17 +55,17 @@
                     <input type="checkbox" id="eraserTool">
 
                     <input type="file" id="fileInput" accept="image/*" class="hidden">
-                    <label for="fileInput" class="px-3 py-1.5 bg-green-500 text-white rounded-md cursor-pointer">Load</label>
-                    <button id="saveButton" class="px-3 py-1.5 bg-yellow-500 text-white rounded-md">Save</button>
+                    <label for="fileInput" class="px-3 py-2 bg-green-500 text-white rounded-md cursor-pointer">Load</label>
+                    <button id="saveButton" class="px-3 py-2 bg-yellow-500 text-white rounded-md">Save</button>
                 </div>
 
-                <div id="user-list" class="mt-3">
+                <div id="user-list" class="mt-3 hidden md:block">
                     <ul id="userList" class="text-sm text-gray-700 space-y-1"></ul>
                 </div>
             </div>
 
             <!-- Chat -->
-            <div class="flex flex-col">
+            <div class="flex flex-col hidden md:flex" id="chatPanel">
                 <div id="chat" class="bg-gray-100 w-full h-72 md:h-full p-3 rounded-md overflow-y-auto"></div>
                 <input type="text" id="messageInput" class="mt-2 px-3 py-2 bg-white border border-gray-300 rounded-md" placeholder="Type your message...">
                 <button id="sendMessageButton" class="mt-2 px-3 py-2 bg-blue-500 text-white rounded-md">Send</button>

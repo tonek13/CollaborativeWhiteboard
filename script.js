@@ -10,11 +10,33 @@ document.addEventListener("DOMContentLoaded", () => {
     const messageInput = document.getElementById("messageInput");
     const sendMessageButton = document.getElementById("sendMessageButton");
     let currentColor = colorPicker.value;
-    let currentBrushSize = brushSizeSelector.value;
+    let currentBrushSize = parseInt(brushSizeSelector.value || '4', 10);
     let isDrawing = false;
     let username = null;
-    
-    const socket = new WebSocket('wss://collaborativewhiteboard-6zp4.onrender.com');
+    let lastX = 0, lastY = 0;
+
+    // Build a WebSocket URL that works locally and across LAN
+       const socket = new WebSocket('wss://collaborativewhiteboard-6zp4.onrender.com');
+
+    // Responsive canvas: scale to CSS size and device pixel ratio
+    function resizeCanvasPreserve() {
+        const dataUrl = canvas.toDataURL();
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        // Reset transform before resizing
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+        canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+        ctx.scale(dpr, dpr);
+        if (dataUrl) {
+            const img = new Image();
+            img.onload = () => { ctx.drawImage(img, 0, 0, rect.width, rect.height); };
+            img.src = dataUrl;
+        }
+    }
+    window.addEventListener('resize', resizeCanvasPreserve);
+    window.addEventListener('orientationchange', resizeCanvasPreserve);
+    requestAnimationFrame(resizeCanvasPreserve);
 
 
     socket.addEventListener('open', () => {
@@ -44,7 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    canvas.addEventListener("mousedown", () => {
+    canvas.addEventListener("pointerdown", () => {
         if (username) {
             socket.send(JSON.stringify({ type: 'username', username: username }));
         }
@@ -122,6 +144,22 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    // Support erase messages coming from other clients
+    function erase(msgOrEvent) {
+        // If it's our local event, it will have offsetX; remote messages have x,y,size
+        const isRemote = typeof msgOrEvent === 'object' && 'x' in msgOrEvent && !('offsetX' in msgOrEvent);
+        const rect = canvas.getBoundingClientRect();
+        const x = isRemote ? msgOrEvent.x : (msgOrEvent.offsetX ?? 0);
+        const y = isRemote ? msgOrEvent.y : (msgOrEvent.offsetY ?? 0);
+        const size = isRemote ? msgOrEvent.size : (parseInt(currentBrushSize, 10) || 4);
+        ctx.save();
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.beginPath();
+        ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
     function toggleDrawingMode() {
         drawingTool.checked = true;
         eraserTool.checked = false;
@@ -166,7 +204,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     brushSizeSelector.addEventListener("change", () => {
-        currentBrushSize = brushSizeSelector.value;
+        currentBrushSize = parseInt(brushSizeSelector.value || '4', 10);
     });
 
     clearButton.addEventListener("click", () => {
@@ -176,11 +214,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     eraserTool.addEventListener("click", toggleEraserMode);
 
-    canvas.addEventListener("mousedown", startDrawing);
-    canvas.addEventListener("mousemove", draw);
-    canvas.addEventListener("mousemove", erase);
-    canvas.addEventListener("mouseup", stopDrawing);
-    canvas.addEventListener("mouseout", stopDrawing);
+    // Pointer events for mouse, pen, and touch
+    canvas.addEventListener("pointerdown", startDrawing);
+    canvas.addEventListener("pointermove", draw);
+    canvas.addEventListener("pointerup", stopDrawing);
+    canvas.addEventListener("pointercancel", stopDrawing);
+    canvas.addEventListener("pointerout", stopDrawing);
 
     function updateUserDrawer(username) {
         const userInfoElement = document.getElementById('user-info');
@@ -190,64 +229,90 @@ document.addEventListener("DOMContentLoaded", () => {
         userInfoElement.appendChild(listItem);
     }
 
-    function startDrawing(e) {
-        isDrawing = true;
-        draw(e);
+    function getPosFromPointerEvent(e) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
 
-    function erase(e) {
-        if (!isDrawing) return;
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = currentBrushSize;
+    function getPosFromTouchEvent(e) {
+        const rect = canvas.getBoundingClientRect();
+        const t = e.touches && e.touches[0] ? e.touches[0] : (e.changedTouches && e.changedTouches[0]);
+        return t ? { x: t.clientX - rect.left, y: t.clientY - rect.top } : { x: lastX, y: lastY };
+    }
+
+    function startDrawing(e) {
+        e.preventDefault();
+        isDrawing = true;
+        if (e.pointerId !== undefined && canvas.setPointerCapture) {
+            try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+        }
+        const pos = e.touches ? getPosFromTouchEvent(e) : getPosFromPointerEvent(e);
+        lastX = pos.x; lastY = pos.y;
         ctx.beginPath();
-        ctx.fillStyle = '#ffffff';
-        ctx.arc(e.offsetX, e.offsetY, currentBrushSize / 2, 0, Math.PI * 2);
-        ctx.fill();
-        const message = {
-            type: 'erase',
-            x: e.offsetX,
-            y: e.offsetY,
-            size: currentBrushSize,
-            color: '#ffffff'
-        };
-        socket.send(JSON.stringify(message));
+        ctx.moveTo(lastX, lastY);
     }
 
     function draw(e) {
         if (!isDrawing) return;
-        ctx.strokeStyle = currentColor;
-        ctx.lineWidth = currentBrushSize;
+        e.preventDefault();
+        const pos = e.touches ? getPosFromTouchEvent(e) : getPosFromPointerEvent(e);
+        const x = pos.x; const y = pos.y;
+
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = parseInt(currentBrushSize, 10) || 4;
+
         if (eraserTool.checked) {
-            ctx.globalCompositeOperation = "destination-out";
+            ctx.globalCompositeOperation = 'destination-out';
         } else {
-            ctx.globalCompositeOperation = "source-over";
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.strokeStyle = currentColor;
         }
-        const message = {
+
+        const message = eraserTool.checked ? {
+            type: 'erase',
+            x,
+            y,
+            size: ctx.lineWidth,
+            color: '#ffffff'
+        } : {
             type: 'draw',
             username: username,
-            x: e.offsetX,
-            y: e.offsetY,
+            x,
+            y,
             color: currentColor,
-            size: currentBrushSize
+            size: ctx.lineWidth
         };
         socket.send(JSON.stringify(message));
-        ctx.lineTo(e.offsetX, e.offsetY);
+
+        ctx.lineTo(x, y);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(e.offsetX, e.offsetY);
-        ctx.globalCompositeOperation = "source-over";
+        ctx.moveTo(x, y);
+        ctx.globalCompositeOperation = 'source-over';
+        lastX = x; lastY = y;
     }
 
-    function stopDrawing() {
+    function stopDrawing(e) {
         isDrawing = false;
+        if (e && e.pointerId !== undefined && canvas.releasePointerCapture) {
+            try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
         ctx.beginPath();
         const message = JSON.stringify({ type: 'stopDrawing' });
         socket.send(message);
     }
 
     function clearCanvas() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const rect = canvas.getBoundingClientRect();
+        ctx.clearRect(0, 0, rect.width, rect.height);
     }
+
+    // Touch event fallbacks for older browsers
+    canvas.addEventListener('touchstart', (e) => { startDrawing(e); }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => { draw(e); }, { passive: false });
+    canvas.addEventListener('touchend', (e) => { stopDrawing(e); }, { passive: false });
+    canvas.addEventListener('touchcancel', (e) => { stopDrawing(e); }, { passive: false });
 
     for (let i = 2; i <= 6; i++) {
         const option = document.createElement("option");

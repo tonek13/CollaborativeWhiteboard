@@ -1,11 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
   const canvas = document.getElementById("whiteboard");
-  // Mobile tab toggles elements (may be null on desktop)
-  const tabBoard = document.getElementById('tabBoard');
-  const tabTools = document.getElementById('tabTools');
-  const tabChat = document.getElementById('tabChat');
-  const controlsPanel = document.getElementById('controlsPanel');
-  const chatPanel = document.getElementById('chatPanel');
   const colorPicker = document.getElementById("colorPicker");
   const brushSizeSelector = document.getElementById("brushSize");
   const clearButton = document.getElementById("clearButton");
@@ -151,48 +145,6 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("orientationchange", resizeCanvasPreserve);
   window.addEventListener("load", () => requestAnimationFrame(resizeCanvasPreserve));
   requestAnimationFrame(resizeCanvasPreserve);
-
-  // --- Mobile tabs: show/hide Tools and Chat on small screens ---
-  function setActiveTab(tab) {
-    // Update button styles
-    [tabBoard, tabTools, tabChat].forEach(btn => {
-      if (!btn) return;
-      btn.classList.remove('bg-gray-200');
-      btn.classList.add('bg-gray-100');
-    });
-    const activeBtn = tab === 'tools' ? tabTools : tab === 'chat' ? tabChat : tabBoard;
-    if (activeBtn) {
-      activeBtn.classList.remove('bg-gray-100');
-      activeBtn.classList.add('bg-gray-200');
-    }
-
-    // Toggle panels (hidden on mobile when not active)
-    if (controlsPanel) controlsPanel.classList.toggle('hidden', tab !== 'tools');
-    const userList = document.getElementById('user-list');
-    if (userList) userList.classList.toggle('hidden', tab !== 'tools');
-    if (chatPanel) chatPanel.classList.toggle('hidden', tab !== 'chat');
-  }
-
-  if (tabBoard) tabBoard.addEventListener('click', () => setActiveTab('board'));
-  if (tabTools) tabTools.addEventListener('click', () => setActiveTab('tools'));
-  if (tabChat) tabChat.addEventListener('click', () => setActiveTab('chat'));
-  // Default to board on small screens
-  setActiveTab('board');
-
-  // On md+ screens, always show tools and chat
-  const mql = window.matchMedia('(min-width: 768px)');
-  function handleMQ(e){
-    if (e.matches) {
-      if (controlsPanel) controlsPanel.classList.remove('hidden');
-      const userList = document.getElementById('user-list');
-      if (userList) userList.classList.remove('hidden');
-      if (chatPanel) chatPanel.classList.remove('hidden');
-    } else {
-      setActiveTab('board');
-    }
-  }
-  if (mql.addEventListener) mql.addEventListener('change', handleMQ); else mql.addListener(handleMQ);
-  handleMQ(mql);
 
   // Chat send
   function sendMessage() {

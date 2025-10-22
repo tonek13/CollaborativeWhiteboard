@@ -20,8 +20,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Responsive canvas: scale to CSS size and device pixel ratio
     function resizeCanvasPreserve() {
-        const dataUrl = canvas.toDataURL();
         const rect = canvas.getBoundingClientRect();
+        // Guard: if layout not settled yet, retry on next frame
+        if (!rect || rect.width < 1 || rect.height < 1) {
+            requestAnimationFrame(resizeCanvasPreserve);
+            return;
+        }
+        const dataUrl = canvas.toDataURL();
         const dpr = window.devicePixelRatio || 1;
         // Reset transform before resizing
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -36,6 +41,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     window.addEventListener('resize', resizeCanvasPreserve);
     window.addEventListener('orientationchange', resizeCanvasPreserve);
+    // Ensure we size after layout and styles apply
+    window.addEventListener('load', () => requestAnimationFrame(resizeCanvasPreserve));
     requestAnimationFrame(resizeCanvasPreserve);
 
 

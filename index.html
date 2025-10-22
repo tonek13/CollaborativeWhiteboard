@@ -7,9 +7,13 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <style>
-        /* Mobile-friendly canvas sizing */
-        .canvas-wrap { height: 60vh; }
-        @media (min-width: 768px) { .canvas-wrap { height: 600px; } }
+        /* Mobile-friendly canvas sizing: scale by width, keep 4:3 */
+        .canvas-wrap { width: 100%; max-width: 100%; aspect-ratio: 4 / 3; }
+        .canvas-wrap canvas { width: 100%; height: 100%; display: block; }
+        /* Fallback for older browsers without aspect-ratio */
+        @supports not (aspect-ratio: 4 / 3) {
+            .canvas-wrap { width: 100%; height: 60vh; }
+        }
     </style>
     </head>
 <body class="bg-white">
@@ -25,7 +29,7 @@
             <!-- Whiteboard + controls -->
             <div class="md:col-span-2 flex flex-col">
                 <div class="canvas-wrap w-full border-2 border-gray-300 rounded-md overflow-hidden">
-                    <canvas id="whiteboard" class="w-full h-full block" width="800" height="600"></canvas>
+                    <canvas id="whiteboard" class="block"></canvas>
                 </div>
 
                 <!-- Controls -->
